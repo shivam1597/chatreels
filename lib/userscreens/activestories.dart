@@ -5,6 +5,7 @@ import 'package:facebook_audience_network/ad/ad_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_cookie_manager/webview_cookie_manager.dart';
 import 'package:dio/dio.dart';
@@ -51,8 +52,13 @@ class _ActiveStoriesState extends State<ActiveStories> with AutomaticKeepAliveCl
     });
   }
 
-  void _focusListener(){
-
+  getPermission()async{
+    var status = await Permission.storage.status;
+    if(status.isDenied){
+      Permission.storage.request();
+    }else if(status.isPermanentlyDenied){
+      openAppSettings();
+    }
   }
 
   @override
@@ -64,6 +70,7 @@ class _ActiveStoriesState extends State<ActiveStories> with AutomaticKeepAliveCl
         systemNavigationBarColor: Colors.black,
         statusBarColor: Colors.black
     ));
+    getPermission();
   }
 
   @override

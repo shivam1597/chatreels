@@ -1,6 +1,7 @@
 // Key Pass: 15041997
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:chatreels/logins/login.dart';
 import 'package:chatreels/userscreens/activestories.dart';
 import 'package:chatreels/userscreens/feed.dart';
@@ -12,7 +13,6 @@ import 'package:flutter_share_me/flutter_share_me.dart';
 import 'package:http/http.dart' as http;
 import 'package:webview_cookie_manager/webview_cookie_manager.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-// import 'package:flutter_contacts/flutter_contacts.dart';
 
 void main() {
 
@@ -27,15 +27,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  
-  final c = WebviewCookieManager();
-  checkJson(jsonString){
-    try {
-      var decodedJSON = json.decode(jsonString) as Map<String, dynamic>;
-    } on FormatException catch (e) {
-      print('The provided string is not valid JSON');
-    }
-  }
+
   int _selectedIndex = 0;
   void _onTap(int index){
     setState(() {
@@ -82,27 +74,33 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   final cookieManager = WebviewCookieManager();
 
-  List cookies = [];
+  // List cookies = [];
 
-  getCookies()async{
-    cookieManager.getCookies('https://www.instagram.com/').then((value){
-      setState(() {
-        cookies = value;
-      });
-    });
+  checkJson(jsonString)async{
+    try {
+      var decodedJSON = json.decode(jsonString) as Map<String, dynamic>;
+    } on FormatException catch (e) {
+      print('The provided string is not valid JSON');
+    }
+  }
+
+  Future getCookies()async{
+    List<Cookie> cookies = await cookieManager.getCookies('https://www.instagram.com/');
+    return cookies;
   }
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    getCookies();
-    Future.delayed(const Duration(seconds: 2)).then((value){
-      if(value != null){
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const MyHomePage()));
-      }else{
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const WebLogin()));
-      }
+    Future.delayed(const Duration(seconds: 1)).then((value){
+      getCookies().then((value){
+        if(value.length >= 11){
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const MyHomePage()));
+        }else{
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>const WebLogin()));
+        }
+      });
     });
   }
 

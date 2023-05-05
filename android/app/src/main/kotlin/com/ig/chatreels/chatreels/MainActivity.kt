@@ -12,34 +12,20 @@ class MainActivity: FlutterActivity() {
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "chatreels.com/channel").setMethodCallHandler {
-                call, result ->
-            if(call.method == "getContacts") {
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "chatreels.com/channel"
+        ).setMethodCallHandler { call, result ->
+            if (call.method == "showToast") {
                 var args = call.arguments as Map<String, String>
-                result.success(checkWhatsApp(args["contactId"] as String))
-            }
-            else {
+                result.success(showToast(args["toast"] as String))
+            } else {
                 result.notImplemented()
             }
         }
     }
 
-    private fun checkWhatsApp(id: String): Boolean {
-        val projection = arrayOf<String>(ContactsContract.RawContacts._ID)
-        val selection = ContactsContract.Data.MIMETYPE + " = ? AND " + ContactsContract.Data.RAW_CONTACT_ID + " = ? "
-        val selectionArgs = arrayOf(id, "com.whatsapp")
-        val cursor: Cursor? = contentResolver.query(
-            ContactsContract.RawContacts.CONTENT_URI,
-            arrayOf(ContactsContract.RawContacts.CONTACT_ID, ContactsContract.RawContacts.DISPLAY_NAME_PRIMARY),
-            ContactsContract.Data.MIMETYPE + " = ? AND " + ContactsContract.Data.RAW_CONTACT_ID + " = ? ",
-            arrayOf(id, "com.whatsapp"),
-            null
-        )
-        val hasWhatsApp: Boolean = cursor!!.moveToNext()
-//        println(hasWhatsApp)
-        return hasWhatsApp
-//        if (hasWhatsApp) {
-//            val rowContactId: String = cursor.getString(0)
-//        }
+    private fun showToast(toastMessage: String){
+        Toast.makeText(this@MainActivity, toastMessage, Toast.LENGTH_SHORT).show()
     }
 }

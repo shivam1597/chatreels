@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:chatreels/userscreens/userfeed.dart';
 import 'package:chatreels/userscreens/videoplayer.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_share_me/flutter_share_me.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:toast/toast.dart';
 import 'package:webview_cookie_manager/webview_cookie_manager.dart';
 import 'package:whatsapp_share/whatsapp_share.dart';
 import 'imageviewer.dart';
@@ -39,11 +41,9 @@ class _StoryViewerState extends State<StoryViewer> {
   final cookieManager = WebviewCookieManager();
   Dio dio = Dio();
   List<StoryModel> storyItems = [];
-  PageController _pageController = PageController();
   bool _sendUrl = true;
 
   getStoryList()async{
-    // SharedPreferences _prefs = await SharedPreferences.getInstance();
     String cookies = '';
     cookieManager.getCookies('https://www.instagram.com/').then((value)async{
       for(var v in value){
@@ -66,7 +66,6 @@ class _StoryViewerState extends State<StoryViewer> {
 
   getPrefsValues()async{
     SharedPreferences _prefs = await SharedPreferences.getInstance();
-    // bool sendUrl = _prefs.getBool('sendUrl') as bool;
     if (_prefs.getBool('sendUrl') != null) {
       setState(() {
         _sendUrl = _prefs.getBool('sendUrl') as bool;
@@ -74,16 +73,23 @@ class _StoryViewerState extends State<StoryViewer> {
     }
   }
 
-  Future downloadFile(String url, mediaType)async{
+  Future downloadFile(String url, mediaType) async {
     Directory tempDir = await getTemporaryDirectory();
     DateTime dateTime = DateTime.now();
-    String path = '${tempDir.path}${dateTime.millisecondsSinceEpoch}.png';
+    String path = '${tempDir.path}/${dateTime.millisecondsSinceEpoch}.png';
     if(!await Directory(tempDir.path).exists()){
       Directory(tempDir.path).createSync(recursive: true);
     }
     if(mediaType==1){
       dio.download(url, path).then((value)async{
-        Toast.show('Sharing file');
+        Fluttertoast.showToast(
+            msg: "Sharing file",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIosWeb: 1,
+            textColor: Colors.white,
+            fontSize: 16.0
+        );
         await FlutterShareMe().shareToWhatsApp(
             fileType: FileType.image,
             imagePath: path
@@ -93,9 +99,16 @@ class _StoryViewerState extends State<StoryViewer> {
     else{
       Directory tempDir = await getTemporaryDirectory();
       DateTime dateTime = DateTime.now();
-      String path = '${tempDir.path}${dateTime.millisecondsSinceEpoch}.mp4';
+      String path = '${tempDir.path}/${dateTime.millisecondsSinceEpoch}.mp4';
       dio.download(url, path).then((value)async{
-        Toast.show('Sharing file');
+        Fluttertoast.showToast(
+            msg: "Sharing file",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIosWeb: 1,
+            textColor: Colors.white,
+            fontSize: 16.0
+        );
         await FlutterShareMe().shareToWhatsApp(
             msg: 'Check this story from ${widget.username}... 😁',
             fileType: FileType.video,
@@ -106,13 +119,29 @@ class _StoryViewerState extends State<StoryViewer> {
     return path;
   }
 
+  _saveToGallery(int mediaType, url)async{
+    DateTime dateTime = DateTime.now();
+    if(mediaType==1){
+      var response = await Dio().get(url,
+          options: Options(responseType: ResponseType.bytes));
+      await ImageGallerySaver.saveImage(
+          Uint8List.fromList(response.data),
+          quality: 60,
+          name: dateTime.millisecondsSinceEpoch.toString());
+      Fluttertoast.showToast(msg: 'Image saved to gallery.');
+    }else{
+      var appDocDir = await getTemporaryDirectory();
+      String savePath = "${appDocDir.path}/${dateTime.millisecondsSinceEpoch}.mp4";
+      await Dio().download(url, savePath);
+      await ImageGallerySaver.saveFile(savePath).then((value) => Fluttertoast.showToast(msg: 'Video saved to gallery.'));
+    }
+  }
+
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     getStoryList();
     getPrefsValues();
-    ToastContext().init(context);
   }
 
   @override
@@ -184,7 +213,6 @@ class _StoryViewerState extends State<StoryViewer> {
                           }
                       );
                       var body = json.decode(response.body);
-                      print(body);
                       String userId = body['data']['user']['id'];
                       String dpUrl = body['data']['user']['profile_pic_url_hd'];
                       String fullName = body['data']['user']['full_name'];
@@ -288,15 +316,6 @@ class _StoryViewerState extends State<StoryViewer> {
                                 activeColor: Colors.red,
                                 onChanged: (bool value) async{
                                   SharedPreferences prefs = await SharedPreferences.getInstance();
-                                  var status = await Permission.storage.status;
-                                  if(status.isGranted){
-
-                                  } else{
-                                    var request = await Permission.storage.request();
-                                    if(request.isGranted){
-                                      downloadFile(url, mediaType);
-                                    }
-                                  }
                                   // This is called when the user toggles the switch.
                                   _setState(() {
                                     _sendUrl = value;
@@ -310,34 +329,59 @@ class _StoryViewerState extends State<StoryViewer> {
                         ],
                       ),
                     ),
-                    GestureDetector(
-                      onTap: ()async{
-                        bool isInstalled = await WhatsappShare.isInstalled(
-                            package: Package.whatsapp
-                        ) as bool;
-                        String storyUrl = "https://instagram.com/stories/$username/$pk";
-                        if(isInstalled){
-                          if(_sendUrl){
-                            FlutterShareMe().shareToWhatsApp(
-                              msg: 'Checkout this story from $username... \n $storyUrl',
-                            );
-                            // WhatsappShare.share(phone: contact[index1].value.toString().replaceAll('+', ''), text: 'Hi');
-                          }
-                          else{
-                            downloadFile(url, mediaType);
-                          }
-                        }
-                      },
-                      child: Container(
-                        alignment: Alignment.center,
-                        height: 35,
-                        width: size.width*0.35,
-                        decoration: BoxDecoration(
-                          color: Colors.orange[700],
-                          borderRadius: BorderRadius.circular(10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        GestureDetector(
+                          onTap: ()async{
+                            bool isInstalled = await WhatsappShare.isInstalled(
+                                package: Package.whatsapp
+                            ) as bool;
+                            String storyUrl = "https://instagram.com/stories/$username/$pk";
+                            if(isInstalled){
+                              if(_sendUrl){
+                                FlutterShareMe().shareToWhatsApp(
+                                  msg: 'Checkout this story from $username... \n $storyUrl',
+                                );
+                              }
+                              else{
+                                downloadFile(url, mediaType);
+                              }
+                            }
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            height: 35,
+                            width: size.width*0.35,
+                            decoration: BoxDecoration(
+                              color: Colors.orange[700],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text('Share with Friends', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),),
+                          ),
                         ),
-                        child: const Text('Share with Friends', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),),
-                      ),
+                        GestureDetector(
+                          onTap: ()async{
+                            var status = await Permission.storage.status;
+                            if(status.isGranted){
+                              _saveToGallery(mediaType, url);
+                            }
+                            else if(status.isDenied){
+                              await Permission.storage.request() ;
+                            }
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            height: 35,
+                            width: size.width*0.35,
+                            decoration: BoxDecoration(
+                              color: Colors.orange[700],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text('Save To Gallery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 25,),
                   ],

@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:flutter/scheduler.dart';
 import 'package:chatreels/userscreens/userfeed.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -42,7 +42,6 @@ class _SearchUserState extends State<SearchUser> {
       );
       var jsonObj = json.decode(request.body);
       searchList.clear();
-      print(jsonObj);
       for(var v in jsonObj['users']){
         SearchModel searchModel = SearchModel(v['user']['profile_pic_url'], v['user']['pk'], v['user']['full_name'], v['user']['username']);
         searchList.add(searchModel);
@@ -115,7 +114,11 @@ class _SearchUserState extends State<SearchUser> {
                     ),
                     title: Text(searchList[index].userName, style: const TextStyle(color: Colors.white, fontSize: 15),),
                     subtitle: Text(searchList[index].name, style: const TextStyle(color: Colors.white60, fontSize: 12),),
-                    onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>UserFeed(searchList[index].userName, searchList[index].id, searchList[index].dpUrl, searchList[index].name))),
+                    onTap: (){
+                      SchedulerBinding.instance.addPostFrameCallback((_) {
+                        Navigator.push(context, MaterialPageRoute(builder: (context)=>UserFeed(searchList[index].userName, searchList[index].id, searchList[index].dpUrl, searchList[index].name)));
+                      });
+                    }
                   );
                 },
               ),

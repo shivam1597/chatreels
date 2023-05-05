@@ -4,11 +4,11 @@ import 'package:chatreels/userscreens/videoplayer.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_share_me/flutter_share_me.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:toast/toast.dart';
 import 'package:webview_cookie_manager/webview_cookie_manager.dart';
 import 'package:whatsapp_share/whatsapp_share.dart';
 
@@ -55,16 +55,45 @@ class _UserFeedState extends State<UserFeed> with AutomaticKeepAliveClientMixin{
     }
   }
 
+  _saveToGallery(String url, bool isVideo)async{
+    Directory tempDir = await getTemporaryDirectory();
+    DateTime dateTime = DateTime.now();
+    String path = '${tempDir.path}/${dateTime.millisecondsSinceEpoch}.png';
+    if(!await Directory(tempDir.path).exists()){
+      Directory(tempDir.path).createSync(recursive: true);
+    }
+    if(!isVideo){
+      dio.download(url, path).then((value) {
+        Fluttertoast.showToast(msg: 'Image saved to the gallery');
+      });
+    }
+    else{
+      Directory tempDir = await getTemporaryDirectory();
+      DateTime dateTime = DateTime.now();
+      String path = '${tempDir.path}/${dateTime.millisecondsSinceEpoch}.mp4';
+      dio.download(url, path).then((value){
+        Fluttertoast.showToast(msg: 'Video saved to the gallery');
+      });
+    }
+  }
+
   Future downloadFile(String url, bool isVideo)async{
     Directory tempDir = await getTemporaryDirectory();
     DateTime dateTime = DateTime.now();
-    String path = '${tempDir.path}${dateTime.millisecondsSinceEpoch}.png';
+    String path = '${tempDir.path}/${dateTime.millisecondsSinceEpoch}.png';
     if(!await Directory(tempDir.path).exists()){
       Directory(tempDir.path).createSync(recursive: true);
     }
     if(!isVideo){
       dio.download(url, path).then((value)async{
-        Toast.show('Sharing file');
+        Fluttertoast.showToast(
+            msg: "Sharing file",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIosWeb: 1,
+            textColor: Colors.white,
+            fontSize: 16.0
+        );
         await FlutterShareMe().shareToWhatsApp(
             fileType: FileType.image,
             imagePath: path
@@ -74,9 +103,16 @@ class _UserFeedState extends State<UserFeed> with AutomaticKeepAliveClientMixin{
     else{
       Directory tempDir = await getTemporaryDirectory();
       DateTime dateTime = DateTime.now();
-      String path = '${tempDir.path}${dateTime.millisecondsSinceEpoch}.mp4';
+      String path = '${tempDir.path}/${dateTime.millisecondsSinceEpoch}.mp4';
       dio.download(url, path).then((value)async{
-        Toast.show('Sharing file');
+        Fluttertoast.showToast(
+            msg: "Sharing file",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIosWeb: 1,
+            textColor: Colors.white,
+            fontSize: 16.0
+        );
         await FlutterShareMe().shareToWhatsApp(
             msg: 'Check this story from ${widget.userName}... 😁',
             fileType: FileType.video,
@@ -88,7 +124,6 @@ class _UserFeedState extends State<UserFeed> with AutomaticKeepAliveClientMixin{
   }
 
   getFeed()async{
-    SharedPreferences _prefs = await SharedPreferences.getInstance();
     String firstPostNumber = "18";
     cookieManager.getCookies('https://www.instagram.com/').then((value)async{
       String cookies = '';
@@ -138,7 +173,14 @@ class _UserFeedState extends State<UserFeed> with AutomaticKeepAliveClientMixin{
     getFeed();
     _controller.addListener(() {
       if (_controller.position.pixels == _controller.position.maxScrollExtent) {
-        Toast.show('Loading feed. Please wait...', duration: 2);
+        Fluttertoast.showToast(
+            msg: "Loading feed. Please wait...",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIosWeb: 1,
+            textColor: Colors.white,
+            fontSize: 16.0
+        );
         getFeed();
       }
     });
@@ -300,34 +342,63 @@ class _UserFeedState extends State<UserFeed> with AutomaticKeepAliveClientMixin{
                         ],
                       ),
                     ),
-                    GestureDetector(
-                      onTap: ()async{
-                        bool isInstalled = await WhatsappShare.isInstalled(
-                            package: Package.whatsapp
-                        ) as bool;
-                        String postUrl = "https://www.instagram.com/p/${feedList[index].shortCode}";
-                        if(isInstalled){
-                          if(_sendUrl){
-                            FlutterShareMe().shareToWhatsApp(
-                              msg: 'Checkout this post from $username... \n $postUrl',
-                            );
-                            // WhatsappShare.share(phone: contact[index1].value.toString().replaceAll('+', ''), text: 'Hi');
-                          }
-                          else{
-                            downloadFile(feedList[index].isVideo?feedList[index].videoUrl:feedList[index].imageUrl, isVideo);
-                          }
-                        }
-                      },
-                      child: Container(
-                        alignment: Alignment.center,
-                        height: 35,
-                        width: size.width*0.35,
-                        decoration: BoxDecoration(
-                          color: Colors.orange[700],
-                          borderRadius: BorderRadius.circular(10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        GestureDetector(
+                          onTap: ()async{
+                            bool isInstalled = await WhatsappShare.isInstalled(
+                                package: Package.whatsapp
+                            ) as bool;
+                            String postUrl = "https://www.instagram.com/p/${feedList[index].shortCode}";
+                            if(isInstalled){
+                              if(_sendUrl){
+                                FlutterShareMe().shareToWhatsApp(
+                                  msg: 'Checkout this post from $username... \n $postUrl',
+                                );
+                                // WhatsappShare.share(phone: contact[index1].value.toString().replaceAll('+', ''), text: 'Hi');
+                              }
+                              else{
+                                downloadFile(feedList[index].isVideo?feedList[index].videoUrl:feedList[index].imageUrl, isVideo);
+                              }
+                            }
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            height: 35,
+                            width: size.width*0.35,
+                            decoration: BoxDecoration(
+                              color: Colors.orange[700],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text('Share with Friends', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),),
+                          ),
                         ),
-                        child: const Text('Share with Friends', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),),
-                      ),
+                        GestureDetector(
+                          onTap: ()async{
+                            var status = await Permission.storage.status;
+                            if(status.isGranted){
+                              _saveToGallery(feedList[index].isVideo?feedList[index].videoUrl:feedList[index].imageUrl, isVideo);
+                              if(mounted){
+                                Navigator.pop(context);
+                              }
+                            }
+                            else if(status.isDenied){
+                              await Permission.storage.request() ;
+                            }
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            height: 35,
+                            width: size.width*0.35,
+                            decoration: BoxDecoration(
+                              color: Colors.orange[700],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text('Save To Gallery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 25,),
                   ],
